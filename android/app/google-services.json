@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "764894652325",
+    "project_id": "musica-bf5a7",
+    "storage_bucket": "musica-bf5a7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:764894652325:android:d44475c1932be219322a4c",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZsi7weKpj5cq5Ypx5StwcwRy69wDS3G8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:764894652325:android:e66098fdd5928642322a4c",
+        "android_client_info": {
+          "package_name": "com.example.musica"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZsi7weKpj5cq5Ypx5StwcwRy69wDS3G8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
