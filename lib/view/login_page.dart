@@ -6,88 +6,82 @@ import 'package:musica/view/home_page.dart';
 import 'package:musica/view/register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State {
   final userNameController = TextEditingController();
   final passwordController = TextEditingController();
+  bool _isLoading = false; 
+
+  void login() async {
+    if (userNameController.text.isEmpty || passwordController.text.isEmpty) {
+      showAlert("Por favor, preencha todos os campos.");
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      
+    });
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: userNameController.text, 
+        password: passwordController.text
+      );
+      
+      Navigator.pushReplacement(
+        context, MaterialPageRoute(builder: (context) => HomePage())
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false; 
+      });
+
+      String errorMessage = _getErrorMessage(e.code);
+      showAlert(errorMessage); 
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      showAlert("Ocorreu um erro inesperado: $e");
+    }
+  }
+
+  String _getErrorMessage(String errorCode) {
+    switch (errorCode) {
+      case 'invalid-email':
+        return "O e-mail informado é inválido.";
+      case 'user-not-found':
+        return "Usuário não encontrado. Verifique seu e-mail.";
+      case 'wrong-password':
+        return "Senha incorreta. Tente novamente.";
+      default:
+        return "Ocorreu um erro inesperado. Tente novamente.";
+    }
+  }
 
   void showAlert(String message) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Erro'),
-          content: Text(message),
+          title: Text(message),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Ok'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("OK"),
             ),
           ],
         );
       },
     );
-  }
-
-  void signUserIn() async {
-    if (userNameController.text.trim().isEmpty || passwordController.text.trim().isEmpty) {
-      showAlert('Por favor, preencha todos os campos.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return const Center(child: CircularProgressIndicator());
-      },
-    );
-
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: userNameController.text,
-        password: passwordController.text,
-      );
-
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Fecha o loading
-      }
-
-      // Verifica se o usuário está logado antes de navegar
-      if (FirebaseAuth.instance.currentUser != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomePage()),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      Navigator.pop(context); // Fecha o loading
-
-      String errorMessage;
-      switch (e.code) {
-        case 'invalid-email':
-          errorMessage = 'O formato de email não é válido';
-          break;
-        case 'user-not-found':
-          errorMessage = 'Usuário não encontrado';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Senha incorreta';
-          break;
-        case 'weak-password':
-          errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
-          break;
-        default:
-          errorMessage = 'Erro desconhecido!';
-          break;
-      }
-
-      showAlert(errorMessage);
-    }
   }
 
   @override
@@ -133,7 +127,8 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 40.0),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20.0),
                               child: Column(
                                 children: [
                                   MyTextfield(
@@ -151,8 +146,8 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   const SizedBox(height: 20.0),
                                   MyButton(
-                                    onTap: signUserIn,
-                                    text: "Entrar",
+                                    onTap: _isLoading ? null : login,
+                                    text: _isLoading ? "Entrando..." : "Entrar",
                                     textColor: Colors.black,
                                   ),
                                 ],
@@ -171,7 +166,7 @@ class _LoginPageState extends State<LoginPage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const RegisterPage(),
+                                        builder: (context) => RegisterPage(),
                                       ),
                                     );
                                   },

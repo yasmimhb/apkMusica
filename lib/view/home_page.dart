@@ -1,96 +1,174 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:musica/service/firestore_service.dart';
+import 'package:musica/view/login_page.dart'; 
 
-class HomePage extends StatelessWidget {
-  HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
-  final user = FirebaseAuth.instance.currentUser;
+  @override
+  _HomePageState createState() => _HomePageState();
+}
 
-  void signUserOut(BuildContext context) async {
+class _HomePageState extends State<HomePage> {
+  final FirestoreService firestoreService = FirestoreService();
+  final TextEditingController musicNameController = TextEditingController();
+  final TextEditingController artistController = TextEditingController();
+  final TextEditingController albumController = TextEditingController();
+
+  // Função de logout
+  void logout() async {
     await FirebaseAuth.instance.signOut();
-    Navigator.popUntil(context, (route) => route.isFirst); 
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => LoginPage()),
+    );
+  }
+
+  // Função para abrir a caixa de diálogo para adicionar/editar músicas
+  void openMusicBox({String? docID, String? currentMusicName, String? currentArtist, String? currentAlbum}) {
+    musicNameController.text = currentMusicName ?? '';
+    artistController.text = currentArtist ?? '';
+    albumController.text = currentAlbum ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: musicNameController,
+              decoration: const InputDecoration(labelText: 'Nome da música'),
+            ),
+            TextField(
+              controller: artistController,
+              decoration: const InputDecoration(labelText: 'Artista'),
+            ),
+            TextField(
+              controller: albumController,
+              decoration: const InputDecoration(labelText: 'Álbum'),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              if (docID == null) {
+                firestoreService.createMusic(
+                  musicNameController.text,
+                  artistController.text,
+                  albumController.text,
+                );
+              } else {
+                firestoreService.updateMusic(
+                  docID,
+                  musicNameController.text,
+                  artistController.text,
+                  albumController.text,
+                );
+              }
+              musicNameController.clear();
+              artistController.clear();
+              albumController.clear();
+              Navigator.pop(context);
+            },
+            child: const Text("Adicionar"),
+          )
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (user == null) {
-      return Scaffold(
-        body: Container(
-          decoration: BoxDecoration(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Icon(Icons.music_note),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Colors.blueAccent, Colors.greenAccent],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
-          child: const Center(
-            child: Text(
-              "Erro: Nenhum usuário autenticado!",
-              style: TextStyle(color: Colors.red, fontSize: 18),
-            ),
-          ),
         ),
-      );
-    }
+      ),
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blueAccent, Colors.greenAccent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: openMusicBox,
+            child: const Icon(Icons.add),
+            backgroundColor: Colors.greenAccent,
           ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 50),
-                    const Icon(
-                      Icons.music_note,
-                      size: 100,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Bem-vindo, ${user!.email}!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
-                    ElevatedButton.icon(
-                      onPressed: () => signUserOut(context),
-                      icon: const Icon(Icons.logout, color: Colors.white),
-                      label: const Text(
-                        'Sair',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 15,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            onPressed: logout,
+            child: const Icon(Icons.logout),
+            backgroundColor: Colors.red,
           ),
-        ),
+        ],
+      ),
+      body: StreamBuilder<User?>(  // Verifica o estado de autenticação do usuário
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData) {
+            return const Center(child: Text("Você precisa estar logado."));
+          }
+
+          return StreamBuilder<QuerySnapshot>(  // Escuta o fluxo de dados de músicas
+            stream: firestoreService.readMusics(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                List musicList = snapshot.data!.docs;
+                return ListView.builder(
+                  itemCount: musicList.length,
+                  itemBuilder: (context, index) {
+                    DocumentSnapshot document = musicList[index];
+                    String docID = document.id;
+                    Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+                    String musicName = data['musicName'];
+                    String artist = data['artist'];
+                    String album = data['album'];
+                    return ListTile(
+                      title: Text(musicName),
+                      subtitle: Text('$artist - $album'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => openMusicBox(
+                              docID: docID,
+                              currentMusicName: musicName,
+                              currentArtist: artist,
+                              currentAlbum: album,
+                            ),
+                            icon: const Icon(Icons.edit),
+                          ),
+                          IconButton(
+                            onPressed: () => firestoreService.deleteMusic(docID),
+                            icon: const Icon(Icons.delete),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              } else {
+                return const Center(child: Text("Sem músicas..."));
+              }
+            },
+          );
+        },
       ),
     );
   }
